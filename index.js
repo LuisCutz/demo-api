@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
 app.use(express.json());
@@ -67,6 +68,48 @@ const verifyToken = (req, res, next) => {
 // Ruta protegida
 app.get("/profile", verifyToken, (req, res) => {
   res.json({ message: "Acceso autorizado", user: req.user });
+});
+
+// Función para enviar la notificación push utilizando Expo con axios
+async function sendPushNotification(expoPushToken, title, body, data) {
+  const message = {
+    to: expoPushToken,
+    sound: 'default',
+    title: title,
+    body: body,
+    data: data,
+  };
+
+  try {
+    const response = await axios.post('https://exp.host/--/api/v2/push/send', message, {
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 200) {
+      console.log('Notificación enviada correctamente');
+    } else {
+      console.error('Error al enviar notificación:', response.data);
+    }
+  } catch (error) {
+    console.error('Error al enviar notificación:', error);
+  }
+}
+
+// Ruta para recibir el token y enviar la notificación
+app.post('/send-notification', (req, res) => {
+  const { token, title, body, data } = req.body;
+
+  if (!token || !title || !body) {
+    return res.status(400).json({ message: 'Token, título y cuerpo son necesarios.' });
+  }
+
+  sendPushNotification(token, title, body, data)
+    .then(() => res.json({ message: 'Notificación enviada correctamente' }))
+    .catch(error => res.status(500).json({ message: 'Error al enviar notificación', error }));
 });
 
 // Iniciar servidor
